@@ -3,7 +3,7 @@
    ========================================================================== */
 
 // 1. Global Store State & LocalStorage Persistence
-let storeAdminWa = localStorage.getItem('toolify_admin_wa') || '6281234567890';
+let storeAdminWa = localStorage.getItem('toolify_admin_wa') || '6282233129573';
 let storeAdminPin = localStorage.getItem('toolify_admin_pin') || '1234';
 let storePaymentInfo = localStorage.getItem('toolify_payment_info') || '• DANA / GoPay / OVO: 0812-3456-7890 (a.n Toolify.id)\n• BCA / SeaBank: 1234567890 (a.n Toolify.id)\n• QRIS: Minta barcode QRIS ke admin jika bayar via QRIS';
 let cart = JSON.parse(localStorage.getItem('toolify_cart') || '[]');
