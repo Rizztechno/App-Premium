@@ -3,12 +3,12 @@
    ========================================================================== */
 
 // 1. KONFIGURASI SUPABASE (Ganti dengan URL & Anon Key project Supabase kamu)
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_KEY';
+const SUPABASE_URL = 'https://znogdbpldvjuzsvqoaqj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
 const isSupabaseConfigured =
-    SUPABASE_URL !== 'https://YOUR_PROJECT_ID.supabase.co' &&
-    SUPABASE_ANON_KEY !== 'YOUR_PUBLIC_ANON_KEY';
+    SUPABASE_URL !== 'https://znogdbpldvjuzsvqoaqj.supabase.co' &&
+    SUPABASE_ANON_KEY !== 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
 const supabaseClient = isSupabaseConfigured
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
