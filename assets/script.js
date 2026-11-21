@@ -1,19 +1,28 @@
 /* ==========================================================================
-   Toolify.id — Store Logic, App Logos, Cart, WhatsApp Checkout & Admin System
+   Qiza.id — Store Logic, App Logos, Cart, WhatsApp Checkout & Supabase Sync
    ========================================================================== */
 
-// 1. Global Store State & LocalStorage Persistence
-let storeAdminWa = localStorage.getItem('toolify_admin_wa') || '6282233129573';
-let storeAdminPin = localStorage.getItem('toolify_admin_pin') || '1234';
-let storePaymentInfo = localStorage.getItem('toolify_payment_info') || '• DANA / GoPay / OVO: 0822-3312-9573 (a.n M.R.A)\n• BCA / SeaBank: 1234567890 (a.n Toolify.id)\n• QRIS: Minta barcode QRIS ke admin jika bayar via QRIS';
-let cart = JSON.parse(localStorage.getItem('toolify_cart') || '[]');
-let ordersQueue = JSON.parse(localStorage.getItem('toolify_orders_queue') || '[]');
-let stockStatusMap = JSON.parse(localStorage.getItem('toolify_stock_map') || '{}');
+// 1. KONFIGURASI SUPABASE (Samakan dengan SUPABASE_URL & KEY di assets/admin.js)
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_KEY';
+
+const isSupabaseReady =
+    window.supabase &&
+    SUPABASE_URL !== 'https://YOUR_PROJECT_ID.supabase.co' &&
+    SUPABASE_ANON_KEY !== 'YOUR_PUBLIC_ANON_KEY';
+
+const sbClient = isSupabaseReady
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+// 2. Global Store State
+const storeAdminWa = '6282233129573';
+let cart = JSON.parse(localStorage.getItem('qiza_cart') || '[]');
+let stockStatusMap = {};
 let activeCategory = 'all';
 let selectedVariants = {};
-let isAdminAuthenticated = false;
 
-// 2. Complete 13 Unique Premium Apps Data
+// 3. Fallback 13 Apps Data (Digunakan otomatis jika Supabase belum diisi)
 const productsData = [
     {
         id: 'canva',
@@ -195,7 +204,7 @@ const productsData = [
     }
 ];
 
-// 3. High-Precision Vector Icons matching official app icons
+// 4. High-Precision Vector Icons matching official app icons
 const customAppIconsSVG = {
     'canva': `
         <svg viewBox="0 0 100 100" class="w-full h-full">
@@ -337,11 +346,18 @@ const customAppIconsSVG = {
     `
 };
 
-// Render Exact App Logo SVG
+// Render Exact App Logo SVG or Custom Image URL
 function renderAppLogo(product, sizeClass = 'w-12 h-12') {
+    if (product.imageUrl) {
+        return `
+            <div class="${sizeClass} rounded-2xl overflow-hidden flex items-center justify-center shadow-md shrink-0">
+                <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-full object-cover">
+            </div>
+        `;
+    }
     const svgMarkup = customAppIconsSVG[product.id] || `
         <div class="w-full h-full bg-brand-600 flex items-center justify-center font-bold text-white text-xs">
-            ${product.name.slice(0, 3)}
+            ${product.name.slice(0, 3).toUpperCase()}
         </div>
     `;
     return `
@@ -352,23 +368,82 @@ function renderAppLogo(product, sizeClass = 'w-12 h-12') {
 }
 
 // Initialize default variant selection & stock readiness
-productsData.forEach(p => {
-    selectedVariants[p.id] = 0;
-    if (stockStatusMap[p.id] === undefined) {
-        stockStatusMap[p.id] = true;
-    }
-});
+function initProductMaps() {
+    productsData.forEach(p => {
+        if (selectedVariants[p.id] === undefined) {
+            selectedVariants[p.id] = 0;
+        }
+        if (stockStatusMap[p.id] === undefined) {
+            stockStatusMap[p.id] = true;
+        }
+    });
+}
+initProductMaps();
 
 function isProductReady(productId) {
     return stockStatusMap[productId] !== false;
 }
 
-// Format Rupiah Helper
 function formatRupiah(num) {
-    return 'Rp ' + num.toLocaleString('id-ID');
+    return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
 }
 
-// Page Navigation Controller (Separates Beranda & Katalog Pages)
+function updateCatalogCounters() {
+    const total = productsData.length;
+    const readyCount = productsData.filter(p => isProductReady(p.id)).length;
+    const navBadge = document.getElementById('nav-catalog-count');
+    const mobileLabel = document.getElementById('mobile-catalog-label');
+    const heroStat = document.getElementById('hero-apps-stat');
+    const heroReady = document.getElementById('hero-ready-text');
+
+    if (navBadge) navBadge.textContent = total;
+    if (mobileLabel) mobileLabel.textContent = `Katalog Aplikasi (${total})`;
+    if (heroStat) heroStat.textContent = `${total}+ Apps`;
+    if (heroReady) heroReady.textContent = `${readyCount} Aplikasi Ready Order`;
+}
+
+// ==================== SUPABASE LIVE SYNC ====================
+async function syncProductsFromSupabase() {
+    if (!sbClient) return;
+    try {
+        const { data, error } = await sbClient
+            .from('products')
+            .select('*')
+            .eq('is_visible', true)
+            .order('sort_order', { ascending: true })
+            .order('id', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+            productsData.length = 0;
+            data.forEach(row => {
+                productsData.push({
+                    id: row.slug,
+                    name: row.name,
+                    category: row.category,
+                    categoryLabel: row.category_label,
+                    badge: row.badge || 'Promo',
+                    badgeColor: row.badge_color || 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+                    imageUrl: row.image_url || null,
+                    description: row.description || '',
+                    variants: Array.isArray(row.variants) && row.variants.length > 0
+                        ? row.variants
+                        : [{ id: `${row.slug}-default`, label: '1 Bulan', price: 15000 }]
+                });
+                selectedVariants[row.slug] = 0;
+                stockStatusMap[row.slug] = row.is_ready !== false;
+            });
+
+            updateCatalogCounters();
+            renderHeroMiniIcons();
+            renderProducts();
+            updateCartUI();
+        }
+    } catch (err) {
+        console.warn('Menggunakan katalog lokal bawaan:', err);
+    }
+}
+
+// Page Navigation Controller
 function navigateTo(page, sectionId = null, searchPreset = '') {
     const homePage = document.getElementById('page-home');
     const katalogPage = document.getElementById('page-katalog');
@@ -457,7 +532,7 @@ function renderProducts() {
     emptyState.classList.add('hidden');
     grid.innerHTML = filtered.map(product => {
         const activeVarIdx = selectedVariants[product.id] || 0;
-        const currentVariant = product.variants[activeVarIdx];
+        const currentVariant = product.variants[activeVarIdx] || product.variants[0];
         const isReady = isProductReady(product.id);
 
         const variantButtonsHtml = product.variants.map((v, idx) => {
@@ -583,7 +658,7 @@ function resetFilters() {
 
 // Cart Functions
 function saveCart() {
-    localStorage.setItem('toolify_cart', JSON.stringify(cart));
+    localStorage.setItem('qiza_cart', JSON.stringify(cart));
     updateCartUI();
 }
 
@@ -744,7 +819,7 @@ function closeCheckoutModal() {
     modal.classList.remove('flex');
 }
 
-// Submit Order to Admin Queue & Redirect to WhatsApp
+// Submit Order Directly to WhatsApp Admin
 function submitWhatsAppOrder(e) {
     e.preventDefault();
 
@@ -765,25 +840,10 @@ function submitWhatsAppOrder(e) {
         return `${idx + 1}. *${item.productName}* (${item.variantLabel}) x${item.qty} = ${formatRupiah(item.subtotal)}`;
     }).join('\n');
 
-    const orderId = 'TLF-' + Math.floor(100000 + Math.random() * 900000);
-    const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-
-    ordersQueue.unshift({
-        id: orderId,
-        createdAt: nowStr,
-        buyerName: name,
-        buyerWa: waNumber,
-        buyerEmail: email,
-        paymentMethod: paymentMethod,
-        note: note,
-        items: orderItems,
-        total: total,
-        status: 'pending'
-    });
-    saveOrdersQueue();
+    const orderId = 'QZA-' + Math.floor(100000 + Math.random() * 900000);
 
     const message = 
-`Halo Admin *Toolify.id* 👋, saya ingin *cek stok & order* aplikasi premium:
+`Halo Admin *Qiza.id* 👋, saya ingin *cek stok & order* aplikasi premium:
 
 🧾 *No. Pengajuan:* ${orderId}
 👤 *Nama:* ${name}
@@ -805,328 +865,14 @@ Mohon konfirmasi ketersediaan stok & kirim *Resi Pembayaran* resminya ya Min. Te
     cart = [];
     saveCart();
     closeCheckoutModal();
-    showToast('Order masuk antrean Admin! Mengarahkan ke WhatsApp...');
+    showToast('Pesanan dibuat! Mengarahkan ke WhatsApp Admin...');
 
     window.open(whatsappUrl, '_blank');
 }
 
 function openDirectAdminChat() {
-    const msg = encodeURIComponent('Halo Admin Toolify.id! Saya mau tanya-tanya soal aplikasi premium yang ready.');
+    const msg = encodeURIComponent('Halo Admin Qiza.id! Saya mau tanya-tanya soal aplikasi premium yang ready.');
     window.open(`https://wa.me/${storeAdminWa}?text=${msg}`, '_blank');
-}
-
-// ==================== ADMIN ACCESS, STOCK & RESI / REFUND SYSTEM ====================
-function saveOrdersQueue() {
-    localStorage.setItem('toolify_orders_queue', JSON.stringify(ordersQueue));
-    updatePendingBadge();
-}
-
-function updatePendingBadge() {
-    const badge = document.getElementById('pending-order-badge');
-    if (!badge) return;
-    const pendingCount = ordersQueue.filter(o => o.status === 'pending').length;
-    if (pendingCount > 0) {
-        badge.textContent = pendingCount;
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
-    }
-}
-
-function openAdminAccess() {
-    if (isAdminAuthenticated) {
-        openAdminModal();
-    } else {
-        document.getElementById('admin-pin-input').value = '';
-        document.getElementById('pin-error-msg').classList.add('hidden');
-        const pinModal = document.getElementById('admin-pin-modal');
-        pinModal.classList.remove('hidden');
-        pinModal.classList.add('flex');
-        setTimeout(() => document.getElementById('admin-pin-input').focus(), 100);
-    }
-}
-
-function closeAdminPinModal() {
-    const pinModal = document.getElementById('admin-pin-modal');
-    pinModal.classList.add('hidden');
-    pinModal.classList.remove('flex');
-}
-
-function verifyAdminPin() {
-    const entered = document.getElementById('admin-pin-input').value.trim();
-    if (entered === storeAdminPin) {
-        isAdminAuthenticated = true;
-        closeAdminPinModal();
-        openAdminModal();
-        showToast('Selamat datang di Dashboard Admin!');
-    } else {
-        document.getElementById('pin-error-msg').classList.remove('hidden');
-    }
-}
-
-function logoutAdmin() {
-    isAdminAuthenticated = false;
-    closeAdminModal();
-    showToast('Sesi Admin dikunci.');
-}
-
-function openAdminModal() {
-    document.getElementById('admin-wa-input').value = storeAdminWa;
-    document.getElementById('admin-payment-info-input').value = storePaymentInfo;
-    document.getElementById('admin-new-pin-input').value = storeAdminPin;
-    renderAdminOrders();
-    renderAdminStockList();
-    const modal = document.getElementById('admin-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    lucide.createIcons();
-}
-
-function closeAdminModal() {
-    const modal = document.getElementById('admin-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-function switchAdminTab(tabName) {
-    ['orders', 'stock', 'settings'].forEach(t => {
-        const panel = document.getElementById(`admin-panel-${t}`);
-        const btn = document.getElementById(`admin-tab-${t}`);
-        if (t === tabName) {
-            panel.classList.remove('hidden');
-            btn.className = 'admin-tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-brand-500 text-white whitespace-nowrap';
-        } else {
-            panel.classList.add('hidden');
-            btn.className = 'admin-tab-btn px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap';
-        }
-    });
-}
-
-function formatBuyerWaForLink(rawPhone) {
-    let clean = (rawPhone || '').replace(/\D/g, '');
-    if (clean.startsWith('0')) clean = '62' + clean.slice(1);
-    return clean;
-}
-
-function renderAdminOrders() {
-    const container = document.getElementById('admin-orders-list');
-    if (!container) return;
-
-    if (ordersQueue.length === 0) {
-        container.innerHTML = `
-            <div class="p-8 rounded-2xl bg-slate-950/70 border border-slate-800 text-center">
-                <p class="font-display font-bold text-sm text-white">Belum ada pesanan masuk</p>
-                <p class="text-xs text-slate-400 mt-1">Setiap pesanan pelanggan dari katalog akan muncul di sini untuk Anda verifikasi stoknya terlebih dahulu.</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = ordersQueue.map((order, idx) => {
-        let statusBadge = '';
-        if (order.status === 'pending') {
-            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">⏳ Menunggu Cek Stok Admin</span>`;
-        } else if (order.status === 'approved') {
-            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">✅ Stok Ready • Resi Terbit</span>`;
-        } else {
-            statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">↩️ Stok Kosong / Refund</span>`;
-        }
-
-        const itemsHtml = order.items.map(it => `
-            <li class="flex justify-between text-xs text-slate-300">
-                <span>• ${it.productName} (${it.variantLabel}) x${it.qty}</span>
-                <span class="font-semibold">${formatRupiah(it.subtotal)}</span>
-            </li>
-        `).join('');
-
-        return `
-            <div class="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-display font-bold text-sm text-white">${order.id}</span>
-                            <span class="text-[11px] text-slate-500">• ${order.createdAt}</span>
-                        </div>
-                        <p class="text-xs text-slate-300 mt-0.5">Pembeli: <strong>${order.buyerName}</strong> (${order.buyerWa}) • Email: <span class="text-brand-300">${order.buyerEmail}</span></p>
-                    </div>
-                    ${statusBadge}
-                </div>
-
-                <ul class="space-y-1 bg-slate-900/70 p-3 rounded-xl border border-slate-800/60">
-                    ${itemsHtml}
-                    <li class="pt-1.5 mt-1.5 border-t border-slate-800 flex justify-between text-xs font-bold text-white">
-                        <span>Total (${order.paymentMethod})</span>
-                        <span class="text-emerald-400">${formatRupiah(order.total)}</span>
-                    </li>
-                </ul>
-
-                <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
-                    <button onclick="approveOrderAndSendResi(${idx})" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all">
-                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                        <span>Terima Stok Ready & Kirim Resi WA</span>
-                    </button>
-                    <button onclick="rejectOrderAndSendRefund(${idx})" class="px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        <span>Stok Kosong / Ajukan Refund WA</span>
-                    </button>
-                </div>
-            </div>
-        `;
-    }).join('');
-    lucide.createIcons();
-}
-
-function approveOrderAndSendResi(orderIndex) {
-    const order = ordersQueue[orderIndex];
-    if (!order) return;
-
-    ordersQueue[orderIndex].status = 'approved';
-    saveOrdersQueue();
-    renderAdminOrders();
-
-    const buyerWaClean = formatBuyerWaForLink(order.buyerWa);
-    const itemsText = order.items.map((it, i) => `${i + 1}. ${it.productName} (${it.variantLabel}) x${it.qty} = ${formatRupiah(it.subtotal)}`).join('\n');
-
-    const resiMessage = 
-`✅ *RESI ORDER & KONFIRMASI STOK READY — TOOLIFY.ID*
-
-Halo Kak *${order.buyerName}* 👋, kabar baik! Stok pesanan Kakak *TERSEDIA (READY)* dan siap diproses.
-
-🧾 *No. Resi Order:* ${order.id}
-📅 *Waktu:* ${order.createdAt}
-📧 *Email Akun Tujuan:* ${order.buyerEmail}
-
-🛒 *Rincian Pesanan:*
-${itemsText}
-
-💰 *Total Tagihan:* *${formatRupiah(order.total)}*
-💳 *Metode Pilihan:* ${order.paymentMethod}
-
-🏦 *Tujuan Pembayaran Resmi:*
-${storePaymentInfo}
-
-Silakan lakukan transfer sesuai nominal di atas dan kirimkan *bukti transfer* di chat ini agar akun segera kami aktifkan (1–5 menit). Terima kasih! 🙏`;
-
-    showToast(`Resi ${order.id} diterbitkan! Membuka WA pembeli...`);
-    window.open(`https://wa.me/${buyerWaClean}?text=${encodeURIComponent(resiMessage)}`, '_blank');
-}
-
-function rejectOrderAndSendRefund(orderIndex) {
-    const order = ordersQueue[orderIndex];
-    if (!order) return;
-
-    ordersQueue[orderIndex].status = 'refunded';
-    saveOrdersQueue();
-    renderAdminOrders();
-
-    const buyerWaClean = formatBuyerWaForLink(order.buyerWa);
-    const itemsText = order.items.map((it, i) => `${i + 1}. ${it.productName} (${it.variantLabel})`).join('\n');
-
-    const refundMessage = 
-`⚠️ *KONFIRMASI STOK & PROSES REFUND — TOOLIFY.ID*
-
-Halo Kak *${order.buyerName}* 👋, mohon maaf sebesar-besarnya. Setelah kami cek di sistem, stok untuk pesanan berikut sedang *HABIS / KOSONG*:
-
-🧾 *No. Order:* ${order.id}
-🛒 *Item:*
-${itemsText}
-💰 *Nominal:* *${formatRupiah(order.total)}*
-
-Jika Kakak *belum transfer*, mohon *JANGAN* melakukan pembayaran terlebih dahulu ya Kak.
-Namun jika Kakak *sudah terlanjur membayar*, kami akan langsung memproses *REFUND 100%* tanpa potongan. Silakan balas chat ini dengan:
-• *Nama Bank / E-Wallet:*
-• *Nomor Rekening / HP:*
-• *Atas Nama:*
-
-Sekali lagi mohon maaf atas ketidaknyamanannya Kak 🙏`;
-
-    showToast(`Notifikasi Stok Habis & Refund ${order.id} dibuka di WA!`);
-    window.open(`https://wa.me/${buyerWaClean}?text=${encodeURIComponent(refundMessage)}`, '_blank');
-}
-
-function clearCompletedOrders() {
-    ordersQueue = ordersQueue.filter(o => o.status === 'pending');
-    saveOrdersQueue();
-    renderAdminOrders();
-    showToast('Riwayat order selesai dibersihkan.');
-}
-
-function renderAdminStockList() {
-    const container = document.getElementById('admin-stock-list');
-    if (!container) return;
-
-    container.innerHTML = productsData.map(product => {
-        const ready = isProductReady(product.id);
-        return `
-            <div class="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                    ${renderAppLogo(product, 'w-10 h-10')}
-                    <div class="min-w-0">
-                        <h4 class="font-bold text-sm text-white truncate">${product.name}</h4>
-                        <p class="text-[11px] ${ready ? 'text-emerald-400' : 'text-rose-400'} font-semibold">
-                            ${ready ? '● Stok Ready (Bisa Diorder)' : '● Stok Habis (Terkunci)'}
-                        </p>
-                    </div>
-                </div>
-                <button 
-                    type="button"
-                    onclick="toggleProductStock('${product.id}')"
-                    class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                        ready 
-                        ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30' 
-                        : 'bg-rose-600/20 text-rose-300 border border-rose-500/40 hover:bg-rose-600/30'
-                    }"
-                >
-                    ${ready ? 'Set Habis' : 'Set Ready'}
-                </button>
-            </div>
-        `;
-    }).join('');
-}
-
-function toggleProductStock(productId) {
-    stockStatusMap[productId] = !isProductReady(productId);
-    localStorage.setItem('toolify_stock_map', JSON.stringify(stockStatusMap));
-    renderAdminStockList();
-    renderProducts();
-    const prod = productsData.find(p => p.id === productId);
-    showToast(`Stok ${prod.name} diubah menjadi ${stockStatusMap[productId] ? 'READY' : 'HABIS'}.`);
-}
-
-function saveAdminSettings() {
-    let raw = document.getElementById('admin-wa-input').value.replace(/\D/g, '');
-    if (raw.startsWith('0')) {
-        raw = '62' + raw.slice(1);
-    }
-    if (raw.length < 9) {
-        showToast('Nomor WhatsApp tidak valid!');
-        return;
-    }
-    const payInfo = document.getElementById('admin-payment-info-input').value.trim();
-    const newPin = document.getElementById('admin-new-pin-input').value.trim();
-
-    if (newPin.length < 4) {
-        showToast('PIN Admin minimal 4 karakter!');
-        return;
-    }
-
-    storeAdminWa = raw;
-    storePaymentInfo = payInfo || storePaymentInfo;
-    storeAdminPin = newPin;
-
-    localStorage.setItem('toolify_admin_wa', storeAdminWa);
-    localStorage.setItem('toolify_payment_info', storePaymentInfo);
-    localStorage.setItem('toolify_admin_pin', storeAdminPin);
-
-    updateFooterWaDisplay();
-    showToast('Pengaturan WA, Info Rekening & PIN Admin berhasil disimpan!');
-}
-
-function updateFooterWaDisplay() {
-    const el = document.getElementById('footer-wa-display');
-    if (el) {
-        el.textContent = '+' + storeAdminWa;
-    }
 }
 
 // FAQ Accordion Toggle
@@ -1154,11 +900,11 @@ function showToast(msg) {
 
 // Initialize Page on Load
 window.addEventListener('DOMContentLoaded', () => {
+    updateCatalogCounters();
     renderHeroMiniIcons();
     renderProducts();
     updateCartUI();
-    updateFooterWaDisplay();
-    updatePendingBadge();
+    syncProductsFromSupabase();
     if (window.location.hash === '#katalog') {
         navigateTo('katalog');
     }
