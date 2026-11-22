@@ -3,13 +3,13 @@
    ========================================================================== */
 
 // 1. KONFIGURASI SUPABASE (Samakan dengan SUPABASE_URL & KEY di assets/admin.js)
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_KEY';
+const SUPABASE_URL = 'https://znogdbpldvjuzsvqoaqj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
 const isSupabaseReady =
     window.supabase &&
-    SUPABASE_URL !== 'https://YOUR_PROJECT_ID.supabase.co' &&
-    SUPABASE_ANON_KEY !== 'YOUR_PUBLIC_ANON_KEY';
+    SUPABASE_URL !== 'https://znogdbpldvjuzsvqoaqj.supabase.co' &&
+    SUPABASE_ANON_KEY !== 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
 const sbClient = isSupabaseReady
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
