@@ -6,9 +6,7 @@
 const SUPABASE_URL = 'https://znogdbpldvjuzsvqoaqj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
-const isSupabaseConfigured =
-    SUPABASE_URL !== 'https://znogdbpldvjuzsvqoaqj.supabase.co' &&
-    SUPABASE_ANON_KEY !== 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
+const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 const supabaseClient = isSupabaseConfigured
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
