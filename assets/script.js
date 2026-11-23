@@ -820,7 +820,7 @@ function closeCheckoutModal() {
 }
 
 // Submit Order Directly to WhatsApp Admin
-function submitWhatsAppOrder(e) {
+async function submitWhatsAppOrder(e) {
     e.preventDefault();
 
     const name = document.getElementById('buyer-name').value.trim();
@@ -836,11 +836,26 @@ function submitWhatsAppOrder(e) {
         return { ...item, subtotal: sub };
     });
 
+    const orderId = 'QZA-' + Math.floor(100000 + Math.random() * 900000);
+
+    // Simpan order ke Supabase agar muncul di Admin Panel
+    if (sbClient) {
+        await sbClient.from('orders').insert([{
+            order_code: orderId,
+            buyer_name: name,
+            buyer_wa: waNumber,
+            buyer_email: email,
+            payment_method: paymentMethod,
+            note: note,
+            items: orderItems,
+            total: total,
+            status: 'pending'
+        }]);
+    }
+
     const itemsListText = orderItems.map((item, idx) => {
         return `${idx + 1}. *${item.productName}* (${item.variantLabel}) x${item.qty} = ${formatRupiah(item.subtotal)}`;
     }).join('\n');
-
-    const orderId = 'QZA-' + Math.floor(100000 + Math.random() * 900000);
 
     const message = 
 `Halo Admin *Qiza.id* 👋, saya ingin *cek stok & order* aplikasi premium:
@@ -859,20 +874,13 @@ ${itemsListText}
 
 Mohon konfirmasi ketersediaan stok & kirim *Resi Pembayaran* resminya ya Min. Terima kasih! 🙏`;
 
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${storeAdminWa}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${storeAdminWa}?text=${encodeURIComponent(message)}`;
 
     cart = [];
     saveCart();
     closeCheckoutModal();
-    showToast('Pesanan dibuat! Mengarahkan ke WhatsApp Admin...');
-
+    showToast('Order tercatat di sistem Admin! Membuka WhatsApp...');
     window.open(whatsappUrl, '_blank');
-}
-
-function openDirectAdminChat() {
-    const msg = encodeURIComponent('Halo Admin Qiza.id! Saya mau tanya-tanya soal aplikasi premium yang ready.');
-    window.open(`https://wa.me/${storeAdminWa}?text=${msg}`, '_blank');
 }
 
 // FAQ Accordion Toggle
