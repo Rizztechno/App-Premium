@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Qiza.id — Admin Product Display Manager (Supabase Integration)
+   Qiza.id — Admin Product Display & Order Manager (Supabase Integration)
    ========================================================================== */
 
-// 1. KONFIGURASI SUPABASE (Ganti dengan URL & Anon Key project Supabase kamu)
+// 1. KONFIGURASI SUPABASE
 const SUPABASE_URL = 'https://znogdbpldvjuzsvqoaqj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KTycKeM2W0jckzkMSC0XOA_XaB971b2';
 
@@ -11,7 +11,8 @@ const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const supabaseClient = isSupabaseConfigured
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
-const STORE_PAYMENT_INFO = '• DANA / GoPay / OVO: 0822-3312-9573 (a.n M.R.A)\n• BCA / SeaBank: 1234567890 (a.n Qiza.id)\n• QRIS: Minta barcode QRIS ke admin jika bayar via QRIS';   
+
+const STORE_PAYMENT_INFO = '• DANA / GoPay / OVO: 0822-3312-9573 (a.n M.R.A)\n• BCA / SeaBank: 1234567890 (a.n Qiza.id)\n• QRIS: Minta barcode QRIS ke admin jika bayar via QRIS';
 
 // State Global Admin
 let adminProducts = [];
@@ -259,6 +260,7 @@ function showDashboard(user) {
     document.getElementById('dashboard-screen').classList.remove('hidden');
     document.getElementById('admin-user-email').textContent = user?.email || 'Admin Qiza.id';
     fetchProductsFromSupabase();
+    fetchOrdersFromSupabase();
 }
 
 // ==================== CRUD SUPABASE PRODUCTS ====================
@@ -598,6 +600,129 @@ async function saveProductToSupabase(e) {
     closeProductModal();
     showToast(dbId ? 'Perubahan produk disimpan!' : 'Produk baru ditambahkan ke katalog!');
     fetchProductsFromSupabase();
+}
+
+// ==================== KELOLA ANTREAN ORDER & RESI ====================
+function switchMainAdminTab(tab) {
+    const secOrders = document.getElementById('section-admin-orders');
+    const secProducts = document.getElementById('section-admin-products');
+    const btnOrders = document.getElementById('tab-btn-orders');
+    const btnProducts = document.getElementById('tab-btn-products');
+
+    if (tab === 'orders') {
+        secOrders.classList.remove('hidden');
+        secProducts.classList.add('hidden');
+        btnOrders.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-brand-600 text-white shadow-lg shadow-brand-600/20 flex items-center gap-2';
+        btnProducts.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60';
+    } else {
+        secProducts.classList.remove('hidden');
+        secOrders.classList.add('hidden');
+        btnProducts.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-brand-600 text-white shadow-lg shadow-brand-600/20';
+        btnOrders.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60 flex items-center gap-2';
+    }
+}
+
+async function fetchOrdersFromSupabase() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        showToast('Gagal memuat order: ' + error.message);
+        return;
+    }
+    adminOrders = data || [];
+    renderAdminOrdersList();
+}
+
+function formatBuyerWa(raw) {
+    let clean = (raw || '').replace(/\D/g, '');
+    if (clean.startsWith('0')) clean = '62' + clean.slice(1);
+    return clean;
+}
+
+function renderAdminOrdersList() {
+    const container = document.getElementById('admin-orders-container');
+    const pendingBadge = document.getElementById('admin-pending-badge');
+    if (!container) return;
+
+    const pendingCount = adminOrders.filter(o => o.status === 'pending').length;
+    if (pendingBadge) {
+        pendingBadge.textContent = pendingCount;
+        pendingBadge.classList.toggle('hidden', pendingCount === 0);
+    }
+
+    if (adminOrders.length === 0) {
+        container.innerHTML = `<div class="p-8 rounded-2xl bg-slate-950/70 border border-slate-800 text-center text-xs text-slate-400">Belum ada pesanan masuk dari katalog.</div>`;
+        return;
+    }
+
+    container.innerHTML = adminOrders.map(order => {
+        const badge = order.status === 'pending'
+            ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">⏳ Menunggu Cek Stok</span>`
+            : order.status === 'approved'
+            ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">✅ Stok Ready • Resi Terbit</span>`
+            : `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">↩️ Stok Kosong / Refund</span>`;
+
+        const itemsHtml = (order.items || []).map(it => `
+            <li class="flex justify-between text-xs text-slate-300">
+                <span>• ${it.productName} (${it.variantLabel}) x${it.qty}</span>
+                <span class="font-semibold">${formatRupiah(it.subtotal)}</span>
+            </li>
+        `).join('');
+
+        return `
+            <div class="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
+                    <div>
+                        <span class="font-display font-bold text-sm text-white">${order.order_code}</span>
+                        <p class="text-xs text-slate-300 mt-0.5">Pembeli: <strong>${order.buyer_name}</strong> (${order.buyer_wa}) • Email: <span class="text-brand-300">${order.buyer_email || '-'}</span></p>
+                    </div>
+                    ${badge}
+                </div>
+                <ul class="space-y-1 bg-slate-900/70 p-3 rounded-xl border border-slate-800/60">
+                    ${itemsHtml}
+                    <li class="pt-1.5 mt-1.5 border-t border-slate-800 flex justify-between text-xs font-bold text-white">
+                        <span>Total (${order.payment_method})</span>
+                        <span class="text-emerald-400">${formatRupiah(order.total)}</span>
+                    </li>
+                </ul>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button onclick="processOrderAction(${order.id}, 'approved')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
+                        ✅ Terima Stok Ready & Kirim Resi WA
+                    </button>
+                    <button onclick="processOrderAction(${order.id}, 'refunded')" class="px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 text-xs font-bold">
+                        ↩️ Stok Kosong / Ajukan Refund WA
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function processOrderAction(orderId, newStatus) {
+    const order = adminOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const { error } = await supabaseClient.from('orders').update({ status: newStatus }).eq('id', orderId);
+    if (error) {
+        showToast('Gagal update status: ' + error.message);
+        return;
+    }
+
+    order.status = newStatus;
+    renderAdminOrdersList();
+
+    const waLink = formatBuyerWa(order.buyer_wa);
+    const itemsText = (order.items || []).map((it, i) => `${i + 1}. ${it.productName} (${it.variantLabel}) x${it.qty} = ${formatRupiah(it.subtotal)}`).join('\n');
+
+    const msg = newStatus === 'approved'
+        ? `✅ *RESI ORDER & KONFIRMASI STOK READY — QIZA.ID*\n\nHalo Kak *${order.buyer_name}* 👋, stok pesanan Kakak *TERSEDIA (READY)*!\n\n🧾 *No. Resi:* ${order.order_code}\n📧 *Email Tujuan:* ${order.buyer_email || '-'}\n\n🛒 *Rincian:*\n${itemsText}\n\n💰 *Total Tagihan:* *${formatRupiah(order.total)}*\n💳 *Metode:* ${order.payment_method}\n\n🏦 *Tujuan Pembayaran Resmi:*\n${STORE_PAYMENT_INFO}\n\nSilakan transfer sesuai nominal dan kirim bukti transfer di chat ini ya Kak. Terima kasih! 🙏`
+        : `⚠️ *KONFIRMASI STOK & PROSES REFUND — QIZA.ID*\n\nHalo Kak *${order.buyer_name}* 👋, mohon maaf stok untuk pesanan *${order.order_code}* sedang *HABIS / KOSONG*.\n\nJika belum transfer, mohon *JANGAN* transfer dulu ya Kak. Jika sudah terlanjur bayar, balas chat ini dengan data rekening/e-wallet untuk *REFUND 100%* tanpa potongan. Terima kasih 🙏`;
+
+    window.open(`https://wa.me/${waLink}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 let toastTimer;
