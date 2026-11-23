@@ -11,9 +11,11 @@ const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const supabaseClient = isSupabaseConfigured
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
+const STORE_PAYMENT_INFO = '• DANA / GoPay / OVO: 0822-3312-9573 (a.n M.R.A)\n• BCA / SeaBank: 1234567890 (a.n Qiza.id)\n• QRIS: Minta barcode QRIS ke admin jika bayar via QRIS';   
 
 // State Global Admin
 let adminProducts = [];
+let adminOrders = [];
 let adminActiveCategory = 'all';
 
 // 2. Ikon SVG Bawaan (Sama persis dengan script.js agar preview seragam)
