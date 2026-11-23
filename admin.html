@@ -193,33 +193,33 @@
             </div>
 
             <!-- Tab Switcher Admin -->
-    <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
-        <button onclick="switchMainAdminTab('orders')" id="tab-btn-orders" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-brand-600 text-white shadow-lg shadow-brand-600/20 flex items-center gap-2">
-            <span>📋 Antrean Order & Resi</span>
-            <span id="admin-pending-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] bg-amber-400 text-slate-950 font-extrabold">0</span>
-        </button>
-        <button onclick="switchMainAdminTab('products')" id="tab-btn-products" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60">
-        📦 Kelola Produk & Stok
-        </button>
-    </div>
+            <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+                <button type="button" onclick="switchMainAdminTab('orders')" id="tab-btn-orders" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-brand-600 text-white shadow-lg shadow-brand-600/20 flex items-center gap-2">
+                    <span>📋 Antrean Order & Resi</span>
+                    <span id="admin-pending-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] bg-amber-400 text-slate-950 font-extrabold">0</span>
+                </button>
+                <button type="button" onclick="switchMainAdminTab('products')" id="tab-btn-products" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700/60">
+                    📦 Kelola Produk & Stok
+                </button>
+            </div>
 
-        <!-- PANEL 1: ANTREAN ORDER & RESI -->
-<div id="section-admin-orders" class="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <h2 class="font-display font-bold text-lg sm:text-xl text-white">Antrean Order Masuk (Supabase)</h2>
-            <p class="text-xs text-slate-400 mt-0.5">Verifikasi stok pesanan pelanggan, lalu kirim Resi Pembayaran atau Notifikasi Refund langsung ke WA pembeli.</p>
-        </div>
-        <button onclick="fetchOrdersFromSupabase()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5">
-            <i data-lucide="refresh-cw" class="w-4 h-4 text-brand-400"></i>
-            <span>Refresh Order</span>
-        </button>
-    </div>
-    <div id="admin-orders-container" class="space-y-3"></div>
-</div>
+            <!-- PANEL 1: ANTREAN ORDER & RESI -->
+            <div id="section-admin-orders" class="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="font-display font-bold text-lg sm:text-xl text-white">Antrean Order Masuk (Supabase)</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">Verifikasi stok pesanan pelanggan, lalu kirim Resi Pembayaran atau Notifikasi Refund langsung ke WA pembeli.</p>
+                    </div>
+                    <button type="button" onclick="fetchOrdersFromSupabase()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 text-brand-400"></i>
+                        <span>Refresh Order</span>
+                    </button>
+                </div>
+                <div id="admin-orders-container" class="space-y-3"></div>
+            </div>
             
-            <!-- Controls Bar: Search, Category Filter & Seed Initial Data -->
-            <div class="glass-card rounded-3xl p-5 sm:p-6 space-y-5">
+            <!-- PANEL 2: MANAJEMEN DISPLAY KATALOG PRODUK -->
+            <div id="section-admin-products" class="hidden glass-card rounded-3xl p-5 sm:p-6 space-y-5">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
                         <h2 class="font-display font-bold text-lg sm:text-xl text-white">Manajemen Display Katalog Produk</h2>
@@ -227,11 +227,11 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2.5">
-                        <button onclick="seedDefaultProducts()" id="btn-seed" class="px-3.5 py-2.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-all" title="Import 13 produk bawaan dari script.js ke Supabase jika tabel masih kosong">
+                        <button type="button" onclick="seedDefaultProducts()" id="btn-seed" class="px-3.5 py-2.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-all" title="Import 13 produk bawaan dari script.js ke Supabase jika tabel masih kosong">
                             <i data-lucide="database-zap" class="w-4 h-4"></i>
                             <span>Import 13 Produk Awal</span>
                         </button>
-                        <button onclick="fetchProductsFromSupabase()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                        <button type="button" onclick="fetchProductsFromSupabase()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all">
                             <i data-lucide="refresh-cw" class="w-4 h-4 text-brand-400"></i>
                             <span>Refresh DB</span>
                         </button>
@@ -241,16 +241,16 @@
                 <!-- Filter & Search -->
                 <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
                     <div class="flex items-center gap-2 overflow-x-auto no-scrollbar" id="admin-cat-tabs">
-                        <button onclick="setAdminCategory('all')" data-cat="all" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white shadow-md shadow-brand-600/20">
+                        <button type="button" onclick="setAdminCategory('all')" data-cat="all" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white shadow-md shadow-brand-600/20">
                             Semua
                         </button>
-                        <button onclick="setAdminCategory('editing')" data-cat="editing" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
+                        <button type="button" onclick="setAdminCategory('editing')" data-cat="editing" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
                             🎨 Editing & Desain
                         </button>
-                        <button onclick="setAdminCategory('streaming')" data-cat="streaming" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
+                        <button type="button" onclick="setAdminCategory('streaming')" data-cat="streaming" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
                             🎬 Streaming
                         </button>
-                        <button onclick="setAdminCategory('music')" data-cat="music" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
+                        <button type="button" onclick="setAdminCategory('music')" data-cat="music" class="admin-cat-btn shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60">
                             🎧 Musik
                         </button>
                     </div>
@@ -411,6 +411,6 @@
     </div>
 
     <!-- Admin Supabase Logic -->
-    <script src="assets/admin.js"></script>
+    <script src="assets/admin.js?v=2"></script>
 </body>
 </html>
