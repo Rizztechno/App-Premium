@@ -1,0 +1,16 @@
+{
+  "name": "qiza-id",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Qiza.id: toko (store/) dan panel admin (admin/) di atas Supabase, deploy ke Vercel sebagai dua project terpisah",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node tests/security.test.mjs",
+    "pentest:live": "node scripts/security-check.mjs",
+    "pentest:local": "node scripts/pentest-browser.mjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.0"
+  }
+}
